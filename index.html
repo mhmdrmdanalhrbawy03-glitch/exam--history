@@ -355,8 +355,8 @@ canvas#cf{position:fixed;inset:0;pointer-events:none;z-index:70}
 const CONFIG = {
   SUPABASE_URL: "https://yerqybopjlhhynohjyzp.supabase.co",
   SUPABASE_KEY: "sb_publishable_5EloXpKtnM55jZsAvWhi7A_r05H8ODK",   // publishable key (آمن في المتصفح)
-  TABLE: "exam_results",
-  LEADERBOARD_VIEW: "exam_leaderboard",       // "" لإلغاء لوحة الشرف
+  TABLE: "hx_results",
+  LEADERBOARD_VIEW: "hx_leaderboard",       // "" لإلغاء لوحة الشرف
   EXAM_ID: "history-2b-2027-t1-unit1-v3",
   DURATION_MIN: 90,
   TEACHER_WHATSAPP: "015527910681",           // بيتحوّل تلقائيًا للصيغة الدولية
@@ -506,7 +506,7 @@ const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const mmss = s => { s=Math.max(0,s); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0") };
 const r1 = x => Math.round(x*10)/10;
 const save = () => { try{ const c={...S}; delete c.paper; localStorage.setItem(KEY,JSON.stringify(c)) }catch(e){} clearTimeout(pt); pt=setTimeout(pushProgress,8000); };
-function pushProgress(){ if(!sb||!ME||!S||S.done) return; sb.from("exam_sessions").update({progress:{ans:S.ans,es:S.es,rev:S.rev,sw:S.sw}}).eq("user_id",ME.id).eq("exam_id",CONFIG.EXAM_ID).then(()=>{},()=>{}); }
+function pushProgress(){ if(!sb||!ME||!S||S.done) return; sb.from("hx_sessions").update({progress:{ans:S.ans,es:S.es,rev:S.rev,sw:S.sw}}).eq("user_id",ME.id).eq("exam_id",CONFIG.EXAM_ID).then(()=>{},()=>{}); }
 const load = () => { try{return JSON.parse(localStorage.getItem(KEY))}catch(e){return null} };
 const show = id => { ["s-auth","s-start","s-exam","s-res"].forEach(x=>$(x).classList.toggle("hide",x!==id)); document.body.classList.toggle("exam-on",id==="s-exam"); const el=$(id); el.classList.remove("screen-in"); void el.offsetWidth; el.classList.add("screen-in"); window.scrollTo(0,0); };
 function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -602,13 +602,13 @@ $("b-start").onclick = async () => {
   const btn=$("b-start"), err=$("f-err"); err.classList.add("hide"); btn.disabled=true;
   try{
     const seed=Math.floor(Math.random()*2147483647);
-    let {data,error}=await sb.from("exam_sessions").insert({user_id:ME.id,exam_id:CONFIG.EXAM_ID,seed}).select().single();
-    if(error && error.code==="23505"){ const r=await sb.from("exam_sessions").select("*").eq("user_id",ME.id).eq("exam_id",CONFIG.EXAM_ID).single(); data=r.data; error=r.error; }
+    let {data,error}=await sb.from("hx_sessions").insert({user_id:ME.id,exam_id:CONFIG.EXAM_ID,seed}).select().single();
+    if(error && error.code==="23505"){ const r=await sb.from("hx_sessions").select("*").eq("user_id",ME.id).eq("exam_id",CONFIG.EXAM_ID).single(); data=r.data; error=r.error; }
     if(error||!data) throw (error||new Error("no session"));
     await syncClock(); beginFromSession(data);
   }catch(e){ err.textContent="تعذر بدء الامتحان: "+(e.message||e); err.classList.remove("hide"); btn.disabled=false; }
 };
-async function syncClock(){ try{ const t0=Date.now(); const {data}=await sb.rpc("server_now"); const t1=Date.now(); if(data) OFF=Date.parse(data)+(t1-t0)/2-t1; }catch(e){} }
+async function syncClock(){ try{ const t0=Date.now(); const {data}=await sb.rpc("hx_server_now"); const t1=Date.now(); if(data) OFF=Date.parse(data)+(t1-t0)/2-t1; }catch(e){} }
 function beginFromSession(sess){
   const old=load(), pr=sess.progress||{};
   const base=(old&&old.seed===sess.seed)?old:{ans:pr.ans||{},es:pr.es||{},rev:pr.rev||{},sw:pr.sw||0};
@@ -741,7 +741,7 @@ async function sendResult(){
   try{
     const R=S.result, chosen={};
     S.paper.forEach(p=>{ if(S.ans[p.id]!==undefined) chosen[p.id+1]=S.ans[p.id]; });
-    const {data,error}=await sb.rpc("submit_exam",{p_exam_id:CONFIG.EXAM_ID,p_chosen:chosen,
+    const {data,error}=await sb.rpc("hx_submit_exam",{p_exam_id:CONFIG.EXAM_ID,p_chosen:chosen,
       p_extra:{essay_score:R.essay_score,lessons:R.lessons,essays:R.essays,tab_switches:R.tab_switches,auto_submitted:R.auto_submitted,ans:S.ans,es:S.es,rev:S.rev,user_agent:R.user_agent}});
     if(error) throw error;
     S.result=data; S.sent=true; save(); showResult(false); loadLeaderboard();
@@ -833,7 +833,7 @@ function setConn(st,msg){
   const e=$("a-err"); e.textContent=msg||(NET_HELP+(window.top!==window.self?" (الصفحة الحالية مفتوحة داخل إطار/معاينة)":"")); e.classList.remove("hide");
 }
 
-const mapErr=m=>isNetErr(m)?NET_HELP:/Invalid login/i.test(m)?"رقم الموبايل أو كلمة السر غلط.":/already registered|already been registered/i.test(m)?"الرقم ده متسجل قبل كده، سجّل دخول.":/least 6|weak/i.test(m)?"كلمة السر لازم تكون 6 على الأقل.":/rate limit/i.test(m)?"محاولات كتير، استنى شوية وجرّب تاني.":/Database error saving/i.test(m)?"تعذر إنشاء الحساب: اكتب اسمك الرباعي الحقيقي (4 أسماء)، أو الرقم متسجل قبل كده.":m;
+const mapErr=m=>isNetErr(m)?NET_HELP:/Invalid login/i.test(m)?"رقم الموبايل أو كلمة السر غلط.":/already registered|already been registered/i.test(m)?"الرقم ده متسجل قبل كده، سجّل دخول.":/least 6|weak/i.test(m)?"كلمة السر لازم تكون 6 على الأقل.":/rate limit/i.test(m)?"محاولات كتير، استنى شوية وجرّب تاني.":/Database error saving/i.test(m)?"تعذر إنشاء الحساب: اكتب اسمك الرباعي الحقيقي (4 أسماء)، أو الرقم متسجل قبل كده.":/is invalid|email_address_invalid/i.test(m)?"تعذر إنشاء الحساب برقم الموبايل ده، راجع الرقم وجرّب تاني.":m;
 function fullNameErr(n){
   n=n.replace(/\s+/g," ").trim(); const w=n.split(" ");
   if(w.length<4) return "الاسم لازم يكون رباعي (4 أسماء على الأقل) زي البطاقة.";
@@ -852,7 +852,7 @@ $("a-go").onclick=async()=>{
   if(ph.startsWith("20")&&ph.length===12) ph="0"+ph.slice(2); else if(ph.length===10&&ph[0]==="1") ph="0"+ph;
   if(!/^01[0125]\d{8}$/.test(ph)) return fail("اكتب رقم موبايل مصري صحيح (11 رقم).");
   if(pass.length<6) return fail("كلمة السر لازم تكون 6 حروف أو أرقام على الأقل.");
-  const email=ph+"@hist-exam.app"; busy(true);
+  const email="hx."+ph+"@gmail.com"; busy(true);
   try{
     if(AUM==="signup"){
       const name=$("a-name").value.replace(/\s+/g," ").trim(), ne=fullNameErr(name); if(ne) return fail(ne);
@@ -873,7 +873,7 @@ async function logout(){ try{ await sb.auth.signOut(); }catch(e){} location.relo
 
 async function afterLogin(user){
   ME=user; KEY="exam:"+CONFIG.EXAM_ID+":"+user.id;
-  const {data:prof,error:e0}=await sb.from("profiles").select("*").eq("id",user.id).maybeSingle(); if(e0) throw e0;
+  const {data:prof,error:e0}=await sb.from("hx_profiles").select("*").eq("id",user.id).maybeSingle(); if(e0) throw e0;
   const um=user.user_metadata||{};
   PROFILE=prof||{full_name:um.full_name||"",phone:um.phone||"",grp:um.grp||""};
   await studentFlow();
@@ -886,7 +886,7 @@ async function studentFlow(){
     S={name:res.student_name,phone:res.phone,grp:res.grp,seed:res.seed,ans:res.ans||{},es:res.es||{},rev:res.rev||{},sw:res.tab_switches,done:true,sent:true,result:res,startAt:0};
     S.paper=buildPaper(S.seed); showResult(false); return;
   }
-  const {data:sess,error:e2}=await sb.from("exam_sessions").select("*").eq("user_id",ME.id).eq("exam_id",CONFIG.EXAM_ID).maybeSingle(); if(e2) throw e2;
+  const {data:sess,error:e2}=await sb.from("hx_sessions").select("*").eq("user_id",ME.id).eq("exam_id",CONFIG.EXAM_ID).maybeSingle(); if(e2) throw e2;
   if(sess){ beginFromSession(sess); return; }
   show("s-start");
 }
