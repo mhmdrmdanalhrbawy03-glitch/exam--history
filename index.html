@@ -365,7 +365,7 @@ const CONFIG = {
   TABLE: "hx_results",
   LEADERBOARD_VIEW: "hx_leaderboard",       // "" لإلغاء لوحة الشرف
   EXAM_ID: "history-2b-2027-t1-unit1-v3",
-  DURATION_MIN: 90,
+  DURATION_MIN: 200,
   TEACHER_WHATSAPP: "015527910681",           // بيتحوّل تلقائيًا للصيغة الدولية
   SHUFFLE_QUESTIONS: true,
   SHUFFLE_OPTIONS: true,
@@ -852,7 +852,7 @@ const memStore={};
 const safeStorage={getItem:k=>{try{return localStorage.getItem(k)}catch(e){return memStore[k]??null}},setItem:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){memStore[k]=v}},removeItem:k=>{try{localStorage.removeItem(k)}catch(e){delete memStore[k]}}};
 const isNetErr=m=>/Failed to fetch|NetworkError|Load failed|network request|fetch failed/i.test(String(m||""));
 const NET_HELP="تعذر الاتصال بالسيرفر. الأسباب المحتملة: (1) الصفحة مفتوحة من داخل معاينة أو تطبيق، افتحها من متصفح عادي أو من رابط https مستضاف (Netlify / GitHub Pages / Vercel). (2) مفيش إنترنت أو في VPN أو حاجب إعلانات بيحجب supabase.co. (3) مشروع Supabase متوقف (Paused)، افتح لوحة Supabase واضغط Restore.";
-const dbErr=e=>{ const m=(e&&e.message)||String(e); if(isNetErr(m)) return NET_HELP; if((e&&e.code==="PGRST202")||/Could not find the function/i.test(m)) return "ميزة ناقصة في قاعدة البيانات: شغّل ملف supabase_setup.sql الجديد في Supabase ثم أعد المحاولة."; if((e&&e.code==="PGRST205")||/schema cache|does not exist|Could not find/i.test(m)) return "قاعدة البيانات لسه مش مجهزة: شغّل ملف supabase_setup.sql في Supabase SQL Editor."; if(/42501|row-level security|permission denied/i.test(m)) return "صلاحيات قاعدة البيانات ناقصة: أعد تشغيل ملف supabase_setup.sql."; return m; };
+const dbErr=e=>{ const m=(e&&e.message)||String(e); if(isNetErr(m)) return NET_HELP; if((e&&e.code==="PGRST202")||/Could not find the function/i.test(m)) return "الدالة مش ظاهرة لـ Supabase. شغّل ملف supabase_setup.sql كامل في SQL Editor (آخره بيحدّث الـ API ويعرض جدول فحص كله OK)، واستنى 10 ثواني وأعد المحاولة."; if((e&&e.code==="PGRST205")||/schema cache|does not exist|Could not find/i.test(m)) return "قاعدة البيانات لسه مش مجهزة: شغّل ملف supabase_setup.sql في Supabase SQL Editor."; if(/42501|row-level security|permission denied/i.test(m)) return "صلاحيات قاعدة البيانات ناقصة: أعد تشغيل ملف supabase_setup.sql."; return m; };
 async function ping(){ try{ const c=new AbortController(); const t=setTimeout(()=>c.abort(),9000); await fetch(CONFIG.SUPABASE_URL+"/auth/v1/health",{headers:{apikey:CONFIG.SUPABASE_KEY},signal:c.signal}); clearTimeout(t); return "ok"; }catch(e){ return "net"; } }
 function setConn(st,msg){
   const c=$("conn"); if(!c) return;
