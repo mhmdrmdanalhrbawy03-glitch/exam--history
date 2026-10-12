@@ -213,6 +213,8 @@ canvas#cf{position:fixed;inset:0;pointer-events:none;z-index:70}
 .btn.busy{pointer-events:none;opacity:.8}.btn.busy:after{content:"";width:16px;height:16px;border:2.5px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
 .badge{display:inline-block;border-radius:99px;padding:0 10px;font-size:12px;font-weight:800}.b-done{background:rgba(52,211,153,.18);color:var(--ok)}.b-prog{background:rgba(251,191,36,.18);color:var(--warn)}.b-none{background:rgba(255,255,255,.08);color:var(--mute)}
+body.nomodel [data-rev]{display:none!important}
+body.nomodel #es .cmp{display:none}
 </style>
 </head>
 <body>
@@ -369,7 +371,9 @@ const CONFIG = {
   TEACHER_WHATSAPP: "015527910681",           // بيتحوّل تلقائيًا للصيغة الدولية
   SHUFFLE_QUESTIONS: true,
   SHUFFLE_OPTIONS: true,
-  SHOW_MODEL_BEFORE_SUBMIT: true,             // عرض نموذج الإجابة قبل التسليم
+  SHOW_MODEL_BEFORE_SUBMIT: true,             // عرض نموذج الإجابة قبل التسليم (المدرس بيتحكم فيه)
+  SHOW_MODEL_AFTER: true,                     // عرض نموذج المقالي بعد التسليم/التصحيح
+  SHOW_MCQ_CORRECT: true,                     // عرض الإجابات الصحيحة للاختيار
   LOCK_AFTER_REVEAL: true,                    // قفل إجابة السؤال بعد فتح النموذج
   MIN_WORDS: 4,
   MCQ_MARKS: 50, ESSAY_MARKS: 50,
@@ -777,9 +781,15 @@ function teacherReview(){
     const miss=(tm&&tm.p)?tm.p.filter(r=>r<1).length:null;
     return `<div class="card"><div class="qh"><div class="qn e">${i+1}</div><div><p class="qt">${esc(e.q)}</p><span class="tag">${LESSONS[e.l].split(":")[0]}</span></div></div>
      <div style="margin:10px 0">${tm&&tm.m!=null?`<span class="badge ${tm.m>=e.m*0.75?"b-done":"b-prog"}" style="font-size:14px">الدرجة: ${r1(+tm.m)} / ${e.m}</span>`:'<span class="badge b-none">لم تتحدد درجة لهذا السؤال</span>'} ${miss===0?'<span class="badge b-done">إجابة كاملة ✅</span>':miss>0?`<span class="badge b-prog">إجابة ناقصة (${miss} نقاط ناقصة)</span>`:""}</div>
-     <div class="cmp-grid"><div class="col mine"><h4>✍️ إجابتك</h4><div class="mine-t">${esc(t)||'<span class="empty">لم تكتب إجابة.</span>'}</div></div><div class="col model"><h4>🏆 الإجابة النموذجية</h4><ol class="mp">${pts}</ol></div></div>
+     <div class="cmp-grid"><div class="col mine"><h4>✍️ إجابتك</h4><div class="mine-t">${esc(t)||'<span class="empty">لم تكتب إجابة.</span>'}</div></div>${CONFIG.SHOW_MODEL_AFTER?`<div class="col model"><h4>🏆 الإجابة النموذجية</h4><ol class="mp">${pts}</ol></div>`:""}</div>
      ${tm&&tm.f?`<div class="status ok" style="margin-top:10px">📝 تعليق المدرس: ${esc(tm.f)}</div>`:""}</div>`;
   }).join("");
+}
+function buildEsReview(){
+  const graded=(S.result.teacher_essay_score!=null);
+  if(graded) return teacherReview();
+  const showModel=CONFIG.SHOW_MODEL_AFTER;
+  return '<div class="status wait">⏳ يتم تصحيح المقالي الآن بواسطة المدرس. أول ما يخلص هتظهر هنا درجة كل سؤال والنقاط الناقصة وتعليقه.'+(showModel?" (اللي تحت مقارنة إرشادية بين إجابتك والنموذج.)":"")+'</div>'+E.map((e,i)=>`<div class="card"><div class="qh"><div class="qn e">${i+1}</div><div><p class="qt">${esc(e.q)}</p><span class="tag">${LESSONS[e.l].split(":")[0]} · ${e.m} درجات${S.rev[i]?" · فتحت النموذج قبل التسليم":""}</span></div></div>${showModel?compareHTML(e,S.es[i]||""):`<div class="col mine" style="margin-top:12px"><h4>✍️ إجابتك</h4><div class="mine-t">${esc(S.es[i]||"")||'<span class="empty">لم تكتب إجابة.</span>'}</div></div>`}</div>`).join("");
 }
 function showResult(first){
   const R=S.result; show("s-res"); window.scrollTo(0,0);
@@ -798,17 +808,20 @@ function showResult(first){
   $("r-time").textContent=mmss(R.time_spent_sec);
   $("r-les").innerHTML=(R.lessons||[]).map(l=>{const pc=l.total?Math.round(l.right/l.total*100):0;return `<div class="lb"><span>${esc(l.lesson)}</span><span>${pc}%</span></div><div class="lbar"><i style="width:${pc}%;background:${pc>=75?"var(--ok)":pc>=50?"var(--warn)":"var(--bad)"}"></i></div>`}).join("");
   renderReview(false);
-  $("es-review").innerHTML=graded?teacherReview():'<div class="status wait">⏳ يتم تصحيح المقالي الآن بواسطة المدرس. أول ما يخلص هتظهر هنا درجة كل سؤال والنقاط الناقصة وتعليقه. (اللي تحت مقارنة إرشادية بين إجابتك والنموذج.)</div>'+E.map((e,i)=>`<div class="card"><div class="qh"><div class="qn e">${i+1}</div><div><p class="qt">${esc(e.q)}</p><span class="tag">${LESSONS[e.l].split(":")[0]} · ${e.m} درجات${S.rev[i]?" · فتحت النموذج قبل التسليم":""}</span></div></div>${compareHTML(e,S.es[i]||"")}</div>`).join("");
+  $("es-review").innerHTML=buildEsReview();
   if(S.sent){ $("r-status").className="status ok"; $("r-status").textContent="✅ نتيجتك اتسجلت عند المدرس."; loadLeaderboard(); loadRequest(); startResultPoll(); }
   else loadRequest();
   if(first && p>=75) confetti();
 }
 function renderReview(onlyWrong){
+  const ansBy={}; ((S.result&&S.result.answers)||[]).forEach(a=>{ ansBy[a.q]=a; });
+  const showC=CONFIG.SHOW_MCQ_CORRECT;
   $("review").innerHTML=S.paper.map((p,i)=>{
-    const ch=S.ans[p.id], ok=ch===p.c; if(onlyWrong&&ok) return "";
+    const ch=S.ans[p.id], a=ansBy[p.id+1], corr=a?a.correct:p.c, ok=a?!!a.ok:ch===p.c;
+    if(onlyWrong&&ok) return "";
     return `<div class="card q"><div class="qh"><div class="qn" style="${ok?"":"background:var(--bad);color:#fff"}">${i+1}</div><p class="qt">${esc(p.t)}</p></div>
-      <div class="opts">${p.o.map((o,k)=>`<div class="opt static ${o===p.c?"right":(o===ch?"wrong":"")}"><span class="l">${LET[k]}</span><span>${esc(o)}${o===p.c?" ✔":""}${o===ch&&!ok?" (إجابتك)":""}</span></div>`).join("")}</div>
-      ${ch===undefined?'<div class="lockn">⚠️ لم تُجب على هذا السؤال</div>':""}</div>`;
+      <div class="opts">${p.o.map((o,k)=>{ const good=(showC&&o===corr)||(ok&&o===ch), bad=(!ok&&o===ch); return `<div class="opt static ${good?"right":(bad?"wrong":"")}"><span class="l">${LET[k]}</span><span>${esc(o)}${good?" ✔":""}${bad?" (إجابتك)":""}</span></div>`; }).join("")}</div>
+      ${ch===undefined?'<div class="lockn">⚠️ لم تُجب على هذا السؤال</div>':""}${!showC&&!ok?'<div class="sub" style="margin-top:8px">🔒 المدرس أخفى الإجابة الصحيحة.</div>':""}</div>`;
   }).join("")||'<div class="status ok">مفيش أسئلة غلط 👏</div>';
 }
 $("b-all").onclick=()=>renderReview(false); $("b-wrong").onclick=()=>renderReview(true);
@@ -899,11 +912,24 @@ $("a-go").onclick=async()=>{
 async function logout(){ try{ await sb.auth.signOut(); }catch(e){} location.reload(); }
 ["b-logout","b-logout2"].forEach(id=>$(id).onclick=logout);
 
+async function loadSettings(){
+  try{
+    const {data,error}=await sb.from("hx_settings").select("*").eq("id",1).maybeSingle();
+    if(error||!data) return false;
+    const before=[CONFIG.SHOW_MODEL_BEFORE_SUBMIT,CONFIG.SHOW_MODEL_AFTER,CONFIG.SHOW_MCQ_CORRECT].join();
+    CONFIG.SHOW_MODEL_BEFORE_SUBMIT=!!data.show_model_before_submit;
+    CONFIG.SHOW_MODEL_AFTER=!!data.show_model_after_grading;
+    CONFIG.SHOW_MCQ_CORRECT=!!data.show_mcq_correct;
+    document.body.classList.toggle("nomodel",!CONFIG.SHOW_MODEL_BEFORE_SUBMIT);
+    return before!==[CONFIG.SHOW_MODEL_BEFORE_SUBMIT,CONFIG.SHOW_MODEL_AFTER,CONFIG.SHOW_MCQ_CORRECT].join();
+  }catch(e){ return false; }
+}
 async function afterLogin(user){
   ME=user; KEY="exam:"+CONFIG.EXAM_ID+":"+user.id;
   const {data:prof,error:e0}=await sb.from("hx_profiles").select("*").eq("id",user.id).maybeSingle(); if(e0) throw e0;
   const um=user.user_metadata||{};
   PROFILE=prof||{full_name:um.full_name||"",phone:um.phone||"",grp:um.grp||""};
+  await loadSettings();
   await studentFlow();
 }
 async function studentFlow(){
@@ -950,6 +976,7 @@ function startResultPoll(){ clearInterval(resPoll); resPoll=setInterval(refreshR
 async function refreshResult(){
   if(!sb||!ME||!S||!S.done||!S.sent) return;
   try{
+    if(await loadSettings()){ renderReview(false); $("es-review").innerHTML=buildEsReview(); }
     const r=await sb.from(CONFIG.TABLE).select("*").eq("user_id",ME.id).eq("exam_id",CONFIG.EXAM_ID).maybeSingle();
     if(r.error) return;
     if(!r.data){
@@ -967,6 +994,7 @@ async function refreshResult(){
 async function pollServer(){
   if(!sb||!ME||!S||S.done||submitting) return;
   try{
+    await loadSettings();
     const r1_=await sb.from(CONFIG.TABLE).select("*").eq("user_id",ME.id).eq("exam_id",CONFIG.EXAM_ID).maybeSingle();
     if(r1_.error) return;
     if(r1_.data){
